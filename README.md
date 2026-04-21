@@ -5,12 +5,11 @@ Este projeto é uma solução de Business Intelligence desenvolvida em **Python*
 ---
 
 <div align="center">
-  <p><b>🚀 Clique no botão abaixo para explorar o Dashboard em tempo real:</b></p>
-  <a href="https://dashboard-folha-ricardovale.streamlit.app/" target="_blank">
+  <p><b>🚀 Clique no botão abaixo para explorar o Dashboard:</b></p>
+  <a href="https://dashboard-folha-ricardovale.streamlit.app/" rel="noopener noreferrer" target="_blank">
     <img src="https://static.streamlit.io/badges/streamlit_badge_black_white.svg" alt="Streamlit App" width="200">
   </a>
-  <br>
-  <i>(O link será aberto em uma nova aba)</i>
+  <p>(Se não abrir em uma nova aba automaticamente, segure <b>Ctrl</b> ao clicar)</p>
 </div>
 
 ---
