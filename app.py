@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import os
 
 # ==============================================================================
 # 1. CONFIGURAÇÕES DA PÁGINA
@@ -23,28 +24,26 @@ st.markdown("""
 
 def formata_moeda(valor: float) -> str:
     """Formata valores numéricos para o padrão de moeda brasileiro."""
-    if pd.isna(valor):
+    if pd.isna(valor) or valor == 0:
         return "R$ 0,00"
     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 @st.cache_data
 def carregar_dados(caminho_excel: str):
     try:
-        # Carregando as abas necessárias
         xls = pd.ExcelFile(caminho_excel)
         raw = pd.read_excel(xls, sheet_name="EMPRESA")
         
-        # Parâmetros Globais (extraídos da planilha)
+        # Parâmetros Globais
         taxa_ir = raw.loc[raw["Empresa XYZ"] == "Imposto de Renda Receita", "Unnamed: 5"].iloc[0]
         valor_hora_extra = raw.loc[raw["Empresa XYZ"] == "Valor da Hora Extra", "Unnamed: 5"].iloc[0]
 
-        # Dados dos Funcionários (ajustando header)
+        # Dados dos Funcionários
         df = pd.read_excel(xls, sheet_name="EMPRESA", header=5)
-        df.columns = df.iloc[0].str.strip() # Define nomes das colunas e limpa espaços
+        df.columns = df.iloc[0].str.strip()
         df = df.iloc[1:].reset_index(drop=True)
-        df = df.dropna(subset=["Nome"]) # Remove linhas sem nome
+        df = df.dropna(subset=["Nome"])
 
-        # Conversão de tipos e limpeza
         numeric_cols = [
             "Salário Bruto", "INSS", "Gratificação", "INSS R$",
             "Imposto de Renda R$", "Gratificação R$", "Hora Extra (trab.)",
@@ -54,7 +53,7 @@ def carregar_dados(caminho_excel: str):
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
-        # Recálculo das colunas para garantir integridade
+        # Recálculo das colunas
         df["Gratificação R$"] = df["Salário Bruto"] * df.get("Gratificação", 0)
         df["INSS R$"] = df["Salário Bruto"] * df.get("INSS", 0)
         df["Imposto de Renda R$"] = df["Salário Bruto"] * taxa_ir
@@ -65,41 +64,65 @@ def carregar_dados(caminho_excel: str):
 
         return df, taxa_ir, valor_hora_extra
     except Exception as e:
-        st.error(f"⚠️ Erro ao carregar o arquivo '{caminho_excel}': {e}")
+        st.error(f"⚠️ Erro interno ao processar o Excel: {e}")
         return None, 0, 0
 
 # ==============================================================================
-# 3. EXECUÇÃO E INTERFACE
+# 3. LÓGICA DE CAMINHO DO ARQUIVO (BLINDAGEM)
 # ==============================================================================
 
-# Nome do arquivo atualizado conforme solicitado
-ARQUIVO = "extraFinal.xlsx"
+# Define o caminho absoluto para evitar erro de diretório no servidor (Linux)
+diretorio_atual = os.path.dirname(os.path.abspath(__file__))
+NOME_ARQUIVO = "extraFinal.xlsx"
+CAMINHO_COMPLETO = os.path.join(diretorio_atual, NOME_ARQUIVO)
 
-df_base, taxa_ir_val, v_he_val = carregar_dados(ARQUIVO)
+# Verificação de existência do arquivo antes de carregar
+if not os.path.exists(CAMINHO_COMPLETO):
+    st.error(f"❌ Arquivo '{NOME_ARQUIVO}' não encontrado no servidor.")
+    st.info(f"Arquivos detectados na pasta: {os.listdir(diretorio_atual)}")
+    st.stop()
+
+df_base, taxa_ir_val, v_he_val = carregar_dados(CAMINHO_COMPLETO)
+
+# ==============================================================================
+# 4. INTERFACE DO DASHBOARD
+# ==============================================================================
 
 if df_base is not None:
-    # --- BARRA LATERAL (FILTROS) ---
     with st.sidebar:
-        st.title("📂 Filtros de Análise")
-        
+        st.title("📂 Filtros")
         niveis = sorted(df_base["Nível Funcional"].unique().astype(str))
         niveis_sel = st.multiselect("Nível Funcional", niveis, default=niveis)
         
         nomes = sorted(df_base["Nome"].unique().astype(str))
         nomes_sel = st.multiselect("Funcionários", nomes, default=nomes)
-        
-        st.divider()
-        st.info("Dica: Use os filtros acima para ajustar os indicadores e gráficos simultaneamente.")
 
-    # Aplicação dos Filtros
     df_f = df_base[
         (df_base["Nível Funcional"].astype(str).isin(niveis_sel)) & 
         (df_base["Nome"].astype(str).isin(nomes_sel))
     ]
 
-    # --- ÁREA PRINCIPAL ---
-    st.title("📊 Painel de Controle de Folha de Pagamento")
+    st.title("📊 Painel de Folha de Pagamento")
     
-    # KPIs Rápidos
     if not df_f.empty:
         c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Funcionários", len(df_f))
+        c2.metric("Média Líquida", formata_moeda(df_f["Salário Líquido"].mean()))
+        c3.metric("Total Descontos", formata_moeda(df_f["Descontos"].sum()))
+        c4.metric("Total H.E.", formata_moeda(df_f["Hora Extra (Total.)"].sum()))
+
+        st.divider()
+
+        col_graf1, col_graf2 = st.columns(2)
+        with col_graf1:
+            st.subheader("Bruto vs Líquido")
+            st.bar_chart(df_f.set_index("Nome")[["Salário Bruto", "Salário Líquido"]])
+
+        with col_graf2:
+            st.subheader("Descontos Acumulados")
+            st.area_chart(df_f.sort_values("Salário Bruto").set_index("Salário Bruto")["Descontos"].cumsum())
+
+        st.subheader("📄 Relatório")
+        st.dataframe(df_f.sort_values("Salário Líquido", ascending=False), use_container_width=True)
+    else:
+        st.warning("Selecione filtros para exibir os dados.")
