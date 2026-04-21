@@ -1,0 +1,19 @@
+# Arquivos de bytecode do Python (inúteis para o GitHub)
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Configurações locais do Streamlit
+.streamlit/
+
+# Ambientes virtuais (se você usar venv)
+venv/
+env/
+.env
+
+# Arquivos do Excel (Remova a linha abaixo se quiser que o Excel suba para o GitHub)
+*.xlsx
+
+# Arquivos do Sistema Operacional
+.DS_Store
+Thumbs.db
