@@ -8,3 +8,11 @@ Este projeto é um dashboard interativo construído com **Python** e **Streamlit
 
 ## 🛠 Tecnologias
 - Python, Pandas, Streamlit.
+
+## 🚀 Demonstração
+
+O projeto está hospedado e pode ser acessado em tempo real através do link abaixo:
+
+👉 [Visualizar Dashboard Online](https://dashboard-folha-ricardovale.streamlit.app/)
+
+---
